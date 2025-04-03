@@ -9,7 +9,7 @@
 
 ### ⚙️ Setup Instructions
 1. Get Your API Key
-    - Get your API key from [schedulia.org](schedulia.org) 🔑  
+    - Get your API key from [schedulia.org](https://schedulia.org) 🔑  
 
 2. Clone Repository
     ```
