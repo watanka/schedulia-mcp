@@ -186,8 +186,7 @@ Use the `request_meeting` tool to create new meeting requests. You'll need to pr
 
 
 ## Demo
-- Need help? Check out demo videos! 🎥
+- Need help? Check out demo videos! 🎥  
 
-[video records]
 [![Schedulia Demo](https://img.youtube.com/vi/vLkg-0RX5mQ/maxresdefault.jpg)](https://youtu.be/vLkg-0RX5mQ)
 
