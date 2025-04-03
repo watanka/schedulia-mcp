@@ -16,9 +16,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger('mcp_server')
 
-from models import Time
-
-SERVER_URL = "http://localhost:8000"
+SERVER_URL = "http://schedulia.org"
 
 def parse_args():
     parser = argparse.ArgumentParser(description='MCP 서버')
@@ -115,7 +113,7 @@ async def respond_to_meeting_request(request_id: int,
 if __name__ == "__main__":
     try:
         if not API_KEY:
-            logger.warning("API 키가 설정되지 않았습니다. --api-key 옵션이나 MCP_API_KEY 환경변수를 사용하세요.")
+            logger.warning("API key is not set. Please use --api-key option or MCP_API_KEY environment variable.")
         logger.info("Starting MCP server...")
         mcp.run()
     except KeyboardInterrupt:
