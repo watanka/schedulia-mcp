@@ -16,12 +16,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger('mcp_server')
 
-SERVER_URL = "http://schedulia.org"
+# 환경 설정
+SERVER_URL = "http://13.125.134.57:8000"  # 기본값은 로컬 백엔드 서버
+ENV = os.getenv('MCP_ENV', 'development')
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='MCP 서버')
+    parser = argparse.ArgumentParser(description='MCP server for schedulia.org')
     parser.add_argument('--api-key', default=os.getenv('MCP_API_KEY'),
-                      help='API 키 (환경변수 MCP_API_KEY로도 설정 가능)')
+                      help='API Key for authentication')
+    parser.add_argument('--server-url', default=SERVER_URL,
+                      help=f'Server URL (default: {SERVER_URL})')
+    parser.add_argument('--env', default=ENV,
+                      choices=['development', 'production'],
+                      help='Environment (development/production)')
     return parser.parse_args()
 
 def signal_handler(sig, frame):
@@ -33,32 +40,47 @@ signal.signal(signal.SIGTERM, signal_handler)
 
 args = parse_args()
 API_KEY = args.api_key
+SERVER_URL = args.server_url
+ENV = args.env
 
+# MCP 서버 설정
 mcp = FastMCP(
     host="127.0.0.1",
     port=8080,
     timeout=30,
-    debug=True
+    debug=(ENV == 'development')
 )
+
+def get_http_client():
+    """HTTP 클라이언트 설정을 환경에 따라 반환"""
+    timeout = 30.0 if ENV == 'production' else 10.0
+    return httpx.AsyncClient(
+        follow_redirects=True,
+        timeout=timeout,
+        verify=(ENV == 'production')  # 개발 환경에서는 SSL 검증 비활성화
+    )
 
 @mcp.tool()
 async def view_meeting_schedules(date=None):
-    print(f"Calling view_meeting_schedules with date={date}")
-    async with httpx.AsyncClient() as client:
+    logger.info(f"Viewing meeting schedules for date={date}")
+    async with get_http_client() as client:
         params = {}
         if date:
             params["date"] = date
         headers = {"X-API-Key": API_KEY} if API_KEY else {}
-        logger.debug(f"Sending GET request to {SERVER_URL}/schedules/ with params={params}")
-        response = await client.get(f"{SERVER_URL}/schedules/", params=params, headers=headers)
-        logger.debug(f"Response status: {response.status_code}")
-        logger.debug(f"Response body: {response.text}")
-        return response.json()
+        
+        try:
+            response = await client.get(f"{SERVER_URL}/schedules/", params=params, headers=headers)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as e:
+            logger.error(f"HTTP error occurred: {str(e)}")
+            raise
 
 @mcp.tool()
 async def view_meeting_requests():
     logger.debug(f"Calling view_meeting_requests")
-    async with httpx.AsyncClient() as client:
+    async with get_http_client() as client:
         headers = {"X-API-Key": API_KEY} if API_KEY else {}
         response = await client.get(f"{SERVER_URL}/requests/", headers=headers)
         logger.debug(f"Response status: {response.status_code}")
@@ -72,7 +94,7 @@ async def request_meeting(receiver_email: str,
                           description: str):
     
     try:
-        async with httpx.AsyncClient() as client:
+        async with get_http_client() as client:
             request_data = {
                 "receiver_email": receiver_email,
                 "available_times": available_times,
@@ -80,17 +102,30 @@ async def request_meeting(receiver_email: str,
                 "description": description
             }
             headers = {"X-API-Key": API_KEY} if API_KEY else {}
-            logger.debug(f"Sending POST request to {SERVER_URL}/requests/ with data={json.dumps(request_data, indent=2)}")
+            
+            logger.info(f"Sending meeting request to {receiver_email}")
+            logger.debug(f"Request data: {json.dumps(request_data, indent=2)}")
+            
             response = await client.post(
-                f"{SERVER_URL}/requests/", 
+                f"{SERVER_URL}/requests",
                 json=request_data,
                 headers=headers
             )
+            response.raise_for_status()
+            
             logger.debug(f"Response status: {response.status_code}")
             logger.debug(f"Response body: {response.text}")
+            
             return response.json()
+            
+    except httpx.HTTPError as e:
+        logger.error(f"HTTP Error occurred: {str(e)}")
+        raise
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to decode JSON response: {str(e)}")
+        raise
     except Exception as e:
-        logger.error(f"Error occurred: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error: {str(e)}")
         raise
 
 @mcp.tool()
@@ -98,7 +133,7 @@ async def respond_to_meeting_request(request_id: int,
                                      accept: bool, 
                                      selected_time: Dict):
     try:
-        async with httpx.AsyncClient() as client:
+        async with get_http_client() as client:
             headers = {"X-API-Key": API_KEY} if API_KEY else {}
             response = await client.post(
                 f"{SERVER_URL}/requests/{request_id}/respond",
@@ -112,9 +147,12 @@ async def respond_to_meeting_request(request_id: int,
 
 if __name__ == "__main__":
     try:
-        if not API_KEY:
-            logger.warning("API key is not set. Please use --api-key option or MCP_API_KEY environment variable.")
-        logger.info("Starting MCP server...")
+        if not API_KEY and ENV == 'production':
+            logger.warning("API key is not set in production environment!")
+        
+        logger.info(f"Starting MCP server in {ENV} mode...")
+        logger.info(f"Server URL: {SERVER_URL}")
+        
         mcp.run()
     except KeyboardInterrupt:
         logger.info("Shutting down gracefully...")
