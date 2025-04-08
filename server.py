@@ -151,7 +151,6 @@ if __name__ == "__main__":
             logger.warning("API key is not set in production environment!")
         
         logger.info(f"Starting MCP server in {ENV} mode...")
-        logger.info(f"Server URL: {SERVER_URL}")
         
         mcp.run()
     except KeyboardInterrupt:
