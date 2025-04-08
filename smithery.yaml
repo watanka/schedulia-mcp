@@ -1,0 +1,17 @@
+# Smithery.ai configuration
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    {"apiKey": {"type": "string"}}
+  commandFunction:
+    # A function that produces the CLI command to start the MCP on stdio.
+    |-
+    (config) => ({
+      "command": "python",
+      "args": [
+        "server.py",
+        "--api-key",
+        config.apiKey
+      ]
+    })
