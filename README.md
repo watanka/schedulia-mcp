@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/watanka-schedulia-mcp-badge.png)](https://mseep.ai/app/watanka-schedulia-mcp)
+
 ## 📅 Schedulia MCP - Meeting Scheduling Assistant
 
 ## 🚀 Getting Started
